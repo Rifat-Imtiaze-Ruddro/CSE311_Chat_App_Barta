@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 27, 2025 at 02:19 PM
+-- Generation Time: Jul 27, 2025 at 06:52 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -116,7 +116,9 @@ CREATE TABLE `user` (
   `password` varchar(255) NOT NULL,
   `dob` date DEFAULT NULL,
   `f_name` varchar(50) DEFAULT NULL,
-  `l_name` varchar(50) DEFAULT NULL
+  `l_name` varchar(50) DEFAULT NULL,
+  `profile_pic` varchar(255) DEFAULT NULL,
+  `email` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -176,7 +178,8 @@ ALTER TABLE `private_chat`
 -- Indexes for table `user`
 --
 ALTER TABLE `user`
-  ADD PRIMARY KEY (`username`);
+  ADD PRIMARY KEY (`username`),
+  ADD UNIQUE KEY `email` (`email`);
 
 --
 -- AUTO_INCREMENT for dumped tables
