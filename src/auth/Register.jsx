@@ -14,12 +14,29 @@ const Register = () => {
          <Logo></Logo>
          <h1 className="text-5xl font-bold">Register now!</h1>
         <form onSubmit={handleRegister} className="fieldset">
-          <label className="label">Name</label>
-          <input type="text" name='name' className="input" placeholder="Name" />
+          <label className="label">User Name</label>
+          <input type="text" name='username' className="input" placeholder="User Name" />
+
+
+         <div className='flex flex-row gap-1'>
+           <div>
+            <label className="label">First Name</label>
+          <input type="text" name='firstname' className="input" placeholder="First Name" />
+          </div>
+          <div>
+            <label className="label">Last Name</label>
+          <input type="text" name='lastname' className="input" placeholder="Last Name" />
+          </div>
+         </div>
+
+
+
           <label className="label">Email</label>
           <input type="email" name='email' className="input" placeholder="Email" />
           <label className="label">PhotoURL</label>
           <input type="url" name='photo' className="input" placeholder="PhotoURL" />
+          <label className="label">Phone</label>
+          <input type="text" name='phone' className="input" placeholder="Phone" />
           <label className="label">Password</label>
           <input type="password" name='password' className="input" placeholder="Password" />
          

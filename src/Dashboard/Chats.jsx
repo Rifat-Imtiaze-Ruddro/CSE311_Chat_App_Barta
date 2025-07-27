@@ -3,7 +3,7 @@ import React from 'react'
 const Chats = () => {
   return (
     <div className='flex flex-row'>
-      <section className='flex-1 '>
+      <section className='flex-1'>
         <h1 className="text-5xl font-bold">Chats</h1>
          <input
  type="text"  name='search' 
