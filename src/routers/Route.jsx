@@ -6,17 +6,17 @@ import Auth from "../auth/Auth";
 import Login from "../auth/Login";
 import Register from "../auth/Register";
 import DashboardLayout from "../layouts/DashboardLayout";
-import Home from "../Dashboard/Home";
 import MyProfile from "../Dashboard/MyProfile";
 import Chats from "../Dashboard/Chats";
+import GroupChats from "../Dashboard/GroupChats";
 
 const router = createBrowserRouter([
   {
     path: "/",
    Component:DashboardLayout,
    children:[
-     {index:true,
-        Component:Home
+     {path:'/',
+        Component:Chats
       },
       {path:'myProfile',
         Component:MyProfile
@@ -24,6 +24,9 @@ const router = createBrowserRouter([
       {path:'chats',
         Component:Chats
       },
+      {path:'groupChats',
+        Component:GroupChats
+      }
    ]
   },
    {

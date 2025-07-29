@@ -40,6 +40,7 @@ const DashboardLayout = () => {
       <Logo></Logo>
         <li><NavLink to='/myProfile'>My Profile</NavLink></li>
         <li><NavLink to='/chats'>Chats</NavLink></li>
+        <li><NavLink to='/groupChats'>Group Chats</NavLink></li>
       
     </ul>
   </div>
