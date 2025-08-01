@@ -2,6 +2,8 @@ import React from 'react'
 import { NavLink, Outlet } from 'react-router'
 import Logo from '../shared/Logo'
 const DashboardLayout = () => {
+  const handleSignOut=() => { }
+
   return (
     <div className="drawer lg:drawer-open">
   <input id="my-drawer-2" type="checkbox" className="drawer-toggle" />
@@ -41,8 +43,10 @@ const DashboardLayout = () => {
         <li><NavLink to='/myProfile'>My Profile</NavLink></li>
         <li><NavLink to='/chats'>Chats</NavLink></li>
         <li><NavLink to='/groupChats'>Group Chats</NavLink></li>
+        <li > <button className='btn bg-amber-300 ' onClick={handleSignOut}>Log Out</button></li>
       
     </ul>
+      
   </div>
 </div>
   )
