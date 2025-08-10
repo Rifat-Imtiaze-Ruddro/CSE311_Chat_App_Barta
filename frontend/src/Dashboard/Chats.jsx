@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MoreVertical, Phone, Video, Smile, Paperclip, Mic, Send } from "lucide-react";
+import { MoreVertical, Phone, Video, Smile, Paperclip, Mic, Send, X } from "lucide-react";
 import { useAuth } from '../context/AuthContext';
 import defaultProfilePic from '../assets/defaultprofile.png';
+import AttachmentPreview from './components/AttachmentPreview';
 
 const Chats = () => {
   const { user } = useAuth();
@@ -15,9 +16,10 @@ const Chats = () => {
     messages: false
   });
   const [sending, setSending] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // Format time properly
   const formatTime = (timestamp) => {
     try {
       const date = new Date(timestamp);
@@ -28,31 +30,67 @@ const Chats = () => {
     }
   };
 
-  // Fetch all users except current user
-  useEffect(() => {
-    if (user?.username) {
-      setLoading(prev => ({ ...prev, users: true }));
-      
-      fetch(`http://localhost/barta/api/users.php?current_user=${user.username}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setUsers(data.users.map(u => ({
-              ...u,
-              online: Math.random() > 0.5, // Random online status for demo
-              profile_pic: u.profile_pic || defaultProfilePic
-            })));
-          }
-          setLoading(prev => ({ ...prev, users: false }));
-        })
-        .catch(err => {
-          console.error('Error fetching users:', err);
-          setLoading(prev => ({ ...prev, users: false }));
-        });
-    }
-  }, [user]);
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    const newAttachments = files.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      type: file.type.startsWith('image/') ? 'image' : 
+            file.type.startsWith('video/') ? 'video' : 
+            file.type.startsWith('audio/') ? 'audio' : 'file',
+      name: file.name,
+      size: file.size
+    }));
+    setAttachments([...attachments, ...newAttachments]);
+  };
 
-  // Fetch messages for selected user
+  const removeAttachment = (index) => {
+    const newAttachments = [...attachments];
+    URL.revokeObjectURL(newAttachments[index].preview);
+    newAttachments.splice(index, 1);
+    setAttachments(newAttachments);
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if ((!newMessage.trim() && attachments.length === 0) || !selectedUser || !user || sending) return;
+
+    setSending(true);
+    const formData = new FormData();
+    
+    if (newMessage.trim()) {
+      formData.append('content', newMessage.trim());
+    }
+    
+    attachments.forEach((attachment, index) => {
+      formData.append(`attachments[${index}]`, attachment.file);
+    });
+    
+    formData.append('sender_id', user.username);
+    formData.append('receiver_id', selectedUser.username);
+
+    try {
+      const res = await fetch('http://localhost/barta/api/send_message.php', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to send message');
+      }
+
+      setNewMessage('');
+      setAttachments([]);
+      await fetchMessages();
+    } catch (err) {
+      console.error('Error sending message:', err);
+    } finally {
+      setSending(false);
+    }
+  };
+
   const fetchMessages = async () => {
     if (!selectedUser || !user?.username) return;
     
@@ -78,7 +116,8 @@ const Chats = () => {
           sender: {
             name: `${msg.f_name} ${msg.l_name}`,
             profile_pic: msg.profile_pic || defaultProfilePic
-          }
+          },
+          attachments: msg.attachments || []
         })));
       }
     } catch (err) {
@@ -88,54 +127,40 @@ const Chats = () => {
     }
   };
 
-  // Initial fetch and periodic refresh
+  useEffect(() => {
+    if (user?.username) {
+      setLoading(prev => ({ ...prev, users: true }));
+      
+      fetch(`http://localhost/barta/api/users.php?current_user=${user.username}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setUsers(data.users.map(u => ({
+              ...u,
+              online: Math.random() > 0.5,
+              profile_pic: u.profile_pic || defaultProfilePic
+            })));
+          }
+          setLoading(prev => ({ ...prev, users: false }));
+        })
+        .catch(err => {
+          console.error('Error fetching users:', err);
+          setLoading(prev => ({ ...prev, users: false }));
+        });
+    }
+  }, [user]);
+
   useEffect(() => {
     if (selectedUser) {
       fetchMessages();
-      const interval = setInterval(fetchMessages, 2000); // Refresh every 2 seconds
+      const interval = setInterval(fetchMessages, 2000);
       return () => clearInterval(interval);
     }
   }, [selectedUser]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !selectedUser || !user || sending) return;
-
-    const messageContent = newMessage.trim();
-    setNewMessage('');
-    setSending(true);
-
-    try {
-      const res = await fetch('http://localhost/barta/api/send_message.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: messageContent,
-          sender_id: user.username,
-          receiver_id: selectedUser.username
-        })
-      });
-
-      const data = await res.json();
-
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to send message');
-      }
-
-      // Refresh messages after successful send
-      await fetchMessages();
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setNewMessage(messageContent); // Restore message if failed
-    } finally {
-      setSending(false);
-    }
-  };
 
   const filteredUsers = users.filter(u =>
     u.username.toLowerCase().includes(search.toLowerCase()) ||
@@ -271,7 +296,18 @@ const Chats = () => {
                                 </div>
                               </div>
                               <div className="bg-white p-3 rounded-lg shadow-sm">
-                                <p className="text-gray-800">{message.content}</p>
+                                {message.content && <p className="text-gray-800">{message.content}</p>}
+                                {message.attachments.length > 0 && (
+                                  <div className="mt-2 space-y-2">
+                                    {message.attachments.map((attachment, idx) => (
+                                      <AttachmentPreview 
+                                        key={idx}
+                                        attachment={attachment}
+                                        type="received"
+                                      />
+                                    ))}
+                                  </div>
+                                )}
                                 <span className="text-xs text-gray-500 mt-1 block">
                                   {message.time}
                                 </span>
@@ -281,7 +317,18 @@ const Chats = () => {
                         ) : (
                           <div className="flex justify-end">
                             <div className="bg-primary text-white p-3 rounded-lg shadow-sm max-w-xs">
-                              <p>{message.content}</p>
+                              {message.content && <p>{message.content}</p>}
+                              {message.attachments.length > 0 && (
+                                <div className="mt-2 space-y-2">
+                                  {message.attachments.map((attachment, idx) => (
+                                    <AttachmentPreview 
+                                      key={idx}
+                                      attachment={attachment}
+                                      type="sent"
+                                    />
+                                  ))}
+                                </div>
+                              )}
                               <span className="text-xs text-primary-content mt-1 block">
                                 {message.time}
                               </span>
@@ -297,11 +344,52 @@ const Chats = () => {
             </div>
 
             <form onSubmit={handleSendMessage} className="bg-gray-50 p-4 border-t border-gray-200">
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {attachments.map((attachment, index) => (
+                    <div key={index} className="relative">
+                      <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                        {attachment.type === 'image' ? (
+                          <img 
+                            src={attachment.preview} 
+                            alt="Preview" 
+                            className="object-cover w-full h-full"
+                          />
+                        ) : (
+                          <div className="p-2 text-center">
+                            <Paperclip className="w-6 h-6 mx-auto text-gray-500" />
+                            <p className="text-xs truncate">{attachment.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {(attachment.size / 1024).toFixed(1)}KB
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(index)}
+                        className="absolute -top-2 -right-2 bg-gray-200 rounded-full p-1"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex items-center space-x-2">
-                <button type="button" className="btn btn-ghost btn-circle">
-                  <Smile className="h-5 w-5 text-gray-500" />
-                </button>
-                <button type="button" className="btn btn-ghost btn-circle">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  multiple
+                />
+                <button 
+                  type="button" 
+                  onClick={() => fileInputRef.current.click()}
+                  className="btn btn-ghost btn-circle"
+                >
                   <Paperclip className="h-5 w-5 text-gray-500" />
                 </button>
                 <div className="flex-1 relative">
@@ -314,23 +402,17 @@ const Chats = () => {
                     disabled={sending}
                   />
                 </div>
-                {newMessage.trim() ? (
-                  <button 
-                    type="submit" 
-                    className="btn btn-ghost btn-circle text-primary"
-                    disabled={sending}
-                  >
-                    {sending ? (
-                      <span className="loading loading-spinner loading-sm"></span>
-                    ) : (
-                      <Send className="h-5 w-5" />
-                    )}
-                  </button>
-                ) : (
-                  <button type="button" className="btn btn-ghost btn-circle">
-                    <Mic className="h-5 w-5 text-gray-500" />
-                  </button>
-                )}
+                <button 
+                  type="submit" 
+                  className="btn btn-ghost btn-circle text-primary"
+                  disabled={sending || (!newMessage.trim() && attachments.length === 0)}
+                >
+                  {sending ? (
+                    <span className="loading loading-spinner loading-sm"></span>
+                  ) : (
+                    <Send className="h-5 w-5" />
+                  )}
+                </button>
               </div>
             </form>
           </>

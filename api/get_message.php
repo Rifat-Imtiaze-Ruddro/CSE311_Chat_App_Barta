@@ -1,9 +1,8 @@
 <?php
-
 header("Content-Type: application/json");
-header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Methods: POST");
-header("Access-Control-Allow-Headers: Content-Type");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
 
 require_once __DIR__ . '/../config/db.php';
 
@@ -15,21 +14,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if ($user1 && $user2) {
         try {
-            // Step 1: Fetch all users from the database
-            $stmt = $conn->prepare("SELECT username FROM user");
-            $stmt->execute();
-            $allUsers = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-            // Step 2: Validate both usernames
-            if (!in_array($user1, $allUsers) || !in_array($user2, $allUsers)) {
-                echo json_encode([
-                    "success" => false,
-                    "message" => "One or both users do not exist."
-                ]);
-                exit;
-            }
-
-            // Step 3: Find chat_id from private_chat
+            // Find chat_id from private_chat
             $chatStmt = $conn->prepare("
                 SELECT chat_id FROM private_chat
                 WHERE (sender_id = :sender1 AND receiver_id = :receiver1)
@@ -47,40 +32,78 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if ($chat) {
                 $chat_id = $chat['chat_id'];
 
-                // Step 4: Get messages by chat_id
-                $msgStmt = $conn->prepare("SELECT * FROM message WHERE chat_id = :chat_id ORDER BY timestamp ASC");
+                // Get messages with attachments
+                $msgStmt = $conn->prepare("
+                    SELECT m.*, 
+                           u.f_name, u.l_name, u.profile_pic,
+                           a.attachment_id, a.file_name, a.file_path, a.file_size, a.mime_type, a.original_name
+                    FROM message m
+                    JOIN user u ON m.sender_id = u.username
+                    LEFT JOIN attachment a ON m.message_id = a.message_id
+                    WHERE m.chat_id = :chat_id
+                    ORDER BY m.timestamp ASC
+                ");
                 $msgStmt->execute([":chat_id" => $chat_id]);
-                $messages = $msgStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                $messages = [];
+                while ($row = $msgStmt->fetch(PDO::FETCH_ASSOC)) {
+                    $messageId = $row['message_id'];
+                    
+                    if (!isset($messages[$messageId])) {
+                        $messages[$messageId] = [
+                            'id' => $row['message_id'],
+                            'content' => $row['content'],
+                            'sender_id' => $row['sender_id'],
+                            'chat_id' => $row['chat_id'],
+                            'timestamp' => $row['timestamp'],
+                            'f_name' => $row['f_name'],
+                            'l_name' => $row['l_name'],
+                            'profile_pic' => $row['profile_pic'],
+                            'attachments' => []
+                        ];
+                    }
+                    
+                    if ($row['attachment_id']) {
+                        $messages[$messageId]['attachments'][] = [
+                            'id' => $row['attachment_id'],
+                            'file_path' => $row['file_path'],
+                            'file_size' => $row['file_size'],
+                            'mime_type' => $row['mime_type'],
+                            'original_name' => $row['original_name']
+                        ];
+                    }
+                }
 
                 echo json_encode([
                     "success" => true,
-                    "chat_id" => $chat_id,
-                    "messages" => $messages
+                    "messages" => array_values($messages)
                 ]);
             } else {
-                // No conversation found
                 echo json_encode([
                     "success" => true,
-                    "chat_id" => null,
                     "messages" => []
                 ]);
             }
 
         } catch (PDOException $e) {
+            http_response_code(500);
             echo json_encode([
                 "success" => false,
                 "message" => "Database error: " . $e->getMessage()
             ]);
         }
     } else {
+        http_response_code(400);
         echo json_encode([
             "success" => false,
-            "message" => "Missing user1 or user2."
+            "message" => "Missing user1 or user2"
         ]);
     }
 } else {
+    http_response_code(405);
     echo json_encode([
         "success" => false,
-        "message" => "Invalid request method."
+        "message" => "Method not allowed"
     ]);
 }
+?>
